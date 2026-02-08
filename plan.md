@@ -1,59 +1,50 @@
-# Plan de Implementación: Listado de Archivos en Servidor Web
+# Plan de Implementación: Crawler de Archivos en Servidor Web
 
-El objetivo es crear una herramienta que, dada una URL base, intente descubrir la mayor cantidad de archivos y directorios accesibles en ese servidor.
+El objetivo es crear un crawler avanzado que, dada una URL base, navegue de forma recursiva a través de los archivos HTML para descubrir y mapear todos los recursos enlazados dentro del dominio `app.itheca.org`.
 
-## Fases del Proyecto
+## Fase 1: Crawling y Análisis de Contenido (Enfoque Principal)
 
-### Fase 1: Análisis Básico y Archivos de Configuración
+1.  **Punto de Partida:**
+    *   Comenzar con el mismo método de la fase anterior: descubrir los directorios raíz (`Biblia`, `Padres`, etc.) a partir de la página principal `https://app.itheca.org/biblioteca/`.
+    *   Crear una cola de URLs para procesar, inicializada con estos directorios.
+    *   Mantener un registro de URLs ya visitadas para evitar bucles y trabajo redundante.
 
-1.  **Entrada de Usuario:**
-    *   La aplicación aceptará una URL base como punto de partida (ej: `https://example.com`).
+2.  **Proceso del Crawler (Bucle Principal):**
+    *   Mientras la cola de URLs no esté vacía, tomar una URL para procesar.
+    *   **Si la URL es un directorio** (termina en `/`):
+        *   Descargar el listado.
+        *   Extraer todos los enlaces (`<a href="...">`).
+        *   Añadir cada nuevo enlace a la cola de URLs por procesar (si no ha sido visitado).
+    *   **Si la URL es un archivo HTML** (termina en `.html` o `.htm`):
+        *   Descargar el contenido del archivo.
+        *   Analizar (parsear) el HTML para encontrar todos los recursos enlazados:
+            *   Otros archivos HTML (`<a href="...">`).
+            *   Archivos JavaScript (`<script src="...">`).
+            *   Hojas de estilo CSS (`<link rel="stylesheet" href="...">`).
+            *   Imágenes y otros medios (`<img src="...">`, etc.).
+        *   Añadir cada nuevo recurso encontrado a la cola de URLs por procesar (si no ha sido visitado y pertenece al dominio).
 
-2.  **Análisis de `robots.txt`:**
-    *   Construir la URL para `robots.txt` (ej: `https://example.com/robots.txt`).
-    *   Descargar y analizar el archivo.
-    *   Extraer y listar las rutas en `Allow`, `Disallow` y la ubicación de los `Sitemap`.
+3.  **Filtrado de Dominio:**
+    *   Durante el proceso, asegurarse de que solo se sigan y registren las URLs que pertenecen al dominio de interés (ej: `app.itheca.org`).
 
-3.  **Análisis de `sitemap.xml`:**
-    *   Buscar sitemaps en la ubicación por defecto (`/sitemap.xml`) y en las rutas encontradas en `robots.txt`.
-    *   Descargar y parsear los archivos XML.
-    *   Extraer y listar todas las URLs contenidas en los sitemaps.
-
-### Fase 2: Descubrimiento Activo (Crawling y Scraping)
-
-1.  **Scraping de la Página Principal:**
-    *   Descargar el contenido HTML de la URL base.
-    *   Extraer todos los enlaces (`<a href="...">`) y las rutas de los scripts (`<script src="...">`).
-    *   Almacenar los enlaces internos para un análisis posterior.
-
-2.  **Crawling Recursivo (Opcional, Profundidad Limitada):**
-    *   Para cada enlace interno descubierto, repetir el proceso de scraping.
-    *   Limitar la profundidad del crawling (ej: 1 o 2 niveles) para evitar bucles y peticiones excesivas.
-
-### Fase 3: Descubrimiento por Fuerza Bruta (Diccionario)
-
-1.  **Crear un Diccionario Básico:**
-    *   Preparar una lista de nombres comunes de archivos y directorios (ej: `admin`, `login`, `test`, `uploads`, `backup`, `wp-admin`).
-
-2.  **Realizar Peticiones:**
-    *   Para cada término en el diccionario, construir una URL (ej: `https://example.com/admin/`).
-    *   Realizar una petición `HEAD` o `GET` para verificar si el recurso existe (comprobar códigos de estado como 200, 301, 403).
-
-### Fase 4: Consolidación y Reporte
+## Fase 2: Consolidación y Reporte
 
 1.  **Unificar Resultados:**
-    *   Agrupar todas las URLs y rutas descubiertas en las fases anteriores.
+    *   Agrupar todas las URLs de archivos finales descubiertos (HTML, JS, CSS, imágenes, etc.).
     *   Eliminar duplicados.
 
 2.  **Generar Reporte:**
-    *   Guardar la lista final de rutas en un archivo de texto (ej: `discovered_paths.txt`).
-    *   El reporte debe ser claro y mostrar las rutas encontradas.
+    *   Guardar la lista final y completa de rutas en un archivo de texto (ej: `full_discovered_files.txt`).
+
+## Fases Anteriores (Ahora Secundarias)
+
+*   **Análisis de `robots.txt` y `sitemap.xml`:** Puede realizarse como un paso inicial opcional para poblar la cola de URLs.
+*   **Descubrimiento por Fuerza Bruta:** Puede usarse como un método complementario si el crawling no revela todos los directorios.
 
 ## Herramientas y Lenguaje
 
-*   **Lenguaje:** Se utilizará PowerShell, continuando con la base del proyecto actual.
+*   **Lenguaje:** Se actualizará el script de PowerShell `DescubrirArchivos.ps1`.
 *   **Comandos Clave:**
-    *   `Invoke-WebRequest`: Para descargar contenido de las URLs (`robots.txt`, `sitemap.xml`, páginas HTML).
-    *   `Select-String`: Para buscar patrones en el texto (parseo simple).
-    *   `Select-Xml`: Para analizar los archivos `sitemap.xml`.
-    *   `Set-Content` / `Add-Content`: Para escribir los reportes.
+    *   `Invoke-WebRequest`: Para descargar contenido HTML y de directorios.
+    *   Uso de las propiedades `.Links`, `.Images`, etc., del objeto `HtmlWebResponseObject` de PowerShell para un parseo más robusto.
+    *   Manejo de colecciones: `Queue` para las URLs por procesar y `HashSet` para las URLs visitadas.
