@@ -2,6 +2,10 @@
 
 El objetivo es crear un crawler avanzado que, dada una URL base, navegue de forma recursiva a través de los archivos HTML para descubrir y mapear todos los recursos enlazados dentro del dominio `app.itheca.org`.
 
+## Estado Actual
+*   **Implementación:** Crawler híbrido (Directorios + Contenido) operativo en `ListarArchivos.ps1`.
+*   **Incidencias:** El listado de archivos actual contiene enlaces rotos o mal formados que hay que verificar.
+
 ## Fase 1: Crawling y Análisis de Contenido (Enfoque Principal)
 
 1.  **Punto de Partida:**
