@@ -1,54 +1,43 @@
 # Plan de Implementación: Crawler de Archivos en Servidor Web
 
-El objetivo es crear un crawler avanzado que, dada una URL base, navegue de forma recursiva a través de los archivos HTML para descubrir y mapear todos los recursos enlazados dentro del dominio `app.itheca.org`.
+El objetivo original es crear un crawler avanzado que, dada una URL base, navegue de forma recursiva a través de los archivos HTML para descubrir y mapear todos los recursos enlazados dentro del dominio `app.itheca.org`. Este esfuerzo ha mutado hacia la preparación de los datos para la ingestión en un sistema RAG (Retrieval-Augmented Generation) avanzado.
 
 ## Estado Actual
-*   **Implementación:** Crawler híbrido (Directorios + Contenido) operativo en `ListarArchivos.ps1`.
-*   **Incidencias:** El listado de archivos actual contiene enlaces rotos o mal formados que hay que verificar.
+*   **Implementación Crawler:** Crawler híbrido (Directorios + Contenido) operativo en `ListarArchivos.ps1` y URLs extraídas en `full_discovered_files.txt`.
+*   **Verificación de Enlaces:** Verificación realizada en `VerificarArchivos.ps1`, generando `verified_tree.txt` (rutas operativas) y `broken_links.txt` (errores).
+*   **Extracción de URLs Válidas:** COMPLETADO con `ExtraerUrlsValidas.ps1`, asilando un total de 11.800+ URLs correctas en el archivo `valid_links.txt`.
+*   **Siguiente Tarea Activa:** Fase 3, Tarea 1: Programación del **Pipeline de Ingesta Dual (Web + Fallback)** mediante un agente Flash.
 
-## Fase 1: Crawling y Análisis de Contenido (Enfoque Principal)
+---
 
-1.  **Punto de Partida:**
-    *   Comenzar con el mismo método de la fase anterior: descubrir los directorios raíz (`Biblia`, `Padres`, etc.) a partir de la página principal `https://app.itheca.org/biblioteca/`.
-    *   Crear una cola de URLs para procesar, inicializada con estos directorios.
-    *   Mantener un registro de URLs ya visitadas para evitar bucles y trabajo redundante.
+## Fase 3: Preparación Estructurada para el Conocimiento
+Esta fase está rediseñada para ser ejecutada por un agente iterativo (modelo base o Flash). Cada paso es una tarea aislada.
 
-2.  **Proceso del Crawler (Bucle Principal):**
-    *   Mientras la cola de URLs no esté vacía, tomar una URL para procesar.
-    *   **Si la URL es un directorio** (termina en `/`):
-        *   Descargar el listado.
-        *   Extraer todos los enlaces (`<a href="...">`).
-        *   Añadir cada nuevo enlace a la cola de URLs por procesar (si no ha sido visitado).
-    *   **Si la URL es un archivo HTML** (termina en `.html` o `.htm`):
-        *   Descargar el contenido del archivo.
-        *   Analizar (parsear) el HTML para encontrar todos los recursos enlazados:
-            *   Otros archivos HTML (`<a href="...">`).
-            *   Archivos JavaScript (`<script src="...">`).
-            *   Hojas de estilo CSS (`<link rel="stylesheet" href="...">`).
-            *   Imágenes y otros medios (`<img src="...">`, etc.).
-        *   Añadir cada nuevo recurso encontrado a la cola de URLs por procesar (si no ha sido visitado y pertenece al dominio).
+1.  **[PENDIENTE - SIGUIENTE PASO PARA AGENTE FLASH] El Descargador Dual Recursivo (Pipeline de Ingesta)**
+    *   **Delegación (Tarea 1 en Propuesta_Proyecto_RAG_Itheca):** El agente debe crear `DescargarContenidoDual.ps1`.
+    *   **Lógica Innegociable:** Leer cada URL de `valid_links.txt`, intentar un scrapeo en vivo con `Invoke-WebRequest` usando la URL en vivo como Origen Primario. Implementar *Try/Catch* para que, en caso de fallo, intente localizar o recuperar la versión local previamente crawleada.
 
-3.  **Filtrado de Dominio:**
-    *   Durante el proceso, asegurarse de que solo se sigan y registren las URLs que pertenecen al dominio de interés (ej: `app.itheca.org`).
+2.  **[PENDIENTE] El Parser Html a Markdown y Extracción de Metadatos:**
+    *   **Delegación (Tarea 2 en Propuesta):** El agente creará un script (Python o PowerShell) que recorra los HTML descargados iterativamente en el paso 1.
+    *   **Lógica Innegociable:** Limpieza total del *boilerplate* y menús. Extracción solo del contenido medular. Guardado en `.md` con inyección obligatoria de un encabezado (frontmatter) que guarde la variable `url_origen`.
 
-## Fase 2: Consolidación y Reporte
+3.  **Análisis de Patrones en Enlaces Rotos:**
+    *   Tarea original de evaluación de la estructura perdida de `broken_links.txt`.
 
-1.  **Unificar Resultados:**
-    *   Agrupar todas las URLs de archivos finales descubiertos (HTML, JS, CSS, imágenes, etc.).
-    *   Eliminar duplicados.
+---
 
-2.  **Generar Reporte:**
-    *   Guardar la lista final y completa de rutas en un archivo de texto (ej: `full_discovered_files.txt`).
+## Fase 4: Implementación de Arquitectura de Microservicios RAG 
+*(Para una visión extendida, consultar `Propuesta_Proyecto_RAG_Itheca.md`)*
 
-## Fases Anteriores (Ahora Secundarias)
+El diseño final del sistema abandona el concepto de un RAG acoplado y pasa a un modelo de servicio.
 
-*   **Análisis de `robots.txt` y `sitemap.xml`:** Puede realizarse como un paso inicial opcional para poblar la cola de URLs.
-*   **Descubrimiento por Fuerza Bruta:** Puede usarse como un método complementario si el crawling no revela todos los directorios.
+1.  **Qdrant Vector Store Centralizado:** Implementación del motor vectorial de forma aislada para habilitar concurrencia.
+2.  **Consumo Multi-Agente:**
+    *   Ataque directo por el **Cerebro** de **InteractIA** mediante una tool específica (`consultar_doctrina_itheca`).
+    *   Ataque concurrente por una instancia de **n8n** conectada vía nodo nativo Qdrant para flujos de mensajería (Continuous RAG).
+3.  **Prueba de Concepto (PoC):** Indexación de una muestra de 10-20 documentos Markdown y script temporal de test de búsqueda para validar el pipeline.
 
-## Herramientas y Lenguaje
-
-*   **Lenguaje:** Se actualizará el script de PowerShell `DescubrirArchivos.ps1`.
-*   **Comandos Clave:**
-    *   `Invoke-WebRequest`: Para descargar contenido HTML y de directorios.
-    *   Uso de las propiedades `.Links`, `.Images`, etc., del objeto `HtmlWebResponseObject` de PowerShell para un parseo más robusto.
-    *   Manejo de colecciones: `Queue` para las URLs por procesar y `HashSet` para las URLs visitadas.
+## Fases Anteriores (Completadas / Secundarias)
+*   **Fase 1 (Crawling Principal):** Proceso base operativo a partir de `https://app.itheca.org/biblioteca/`.
+*   **Fase 2 (Consolidación):** Rutas guardadas y des-duplicadas en logs.
+*   **Herramientas Clave Base:** PowerShell, `HtmlWebResponseObject`, y manejo de HashSets y Queues.
