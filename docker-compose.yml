@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Microservicio de Text Embeddings Inference (Open Source de HuggingFace)
+  # Esta API emula el formato de OpenAI para que n8n, Langchain y otros agentes
+  # puedan generar vectores enviando el texto por HTTP sin procesarlo localmente.
+  embeddings-api:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+    container_name: itheca_embeddings_api
+    hostname: embeddings-api
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      # Descarga y sirve este modelo específico al arrancar
+      - MODEL_ID=intfloat/multilingual-e5-large
+      # Como es un modelo "Large" y estamos en CPU, vamos a limitar
+      # la cantidad de memoria que el contenedor asume que puede usar
+      # para evitar que mate al servidor si llegan muchos textos a la vez.
+      - MAX_CLIENT_BATCH_SIZE=16
+      - MAX_BATCH_TOKENS=8192
+    deploy:
+      resources:
+        limits:
+          # Límite duro: No dejes que la RAM de este contenedor pase de 4.5 GB
+          # Tienes 6.2 GB en total, dejamos el resto para el SO y Qdrant.
+          memory: 4.5G
+        reservations:
+          memory: 2G
+    volumes:
+      # Guarda el modelo de 2.2GB descargado en el disco del servidor
+      # para que no tenga que volver a descargarlo si reinicias el contenedor.
+      - tei_cache:/data
+
+volumes:
+  tei_cache:
